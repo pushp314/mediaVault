@@ -164,11 +164,17 @@ func setupRouter(
 		{
 			storage.GET("", storageHandler.ListStorageAccounts)
 			storage.GET("/:id", storageHandler.GetStorageAccount)
-			storage.POST("", storageHandler.CreateStorageAccount)
-			storage.PATCH("/:id", storageHandler.UpdateStorageAccount)
-			storage.DELETE("/:id", storageHandler.DeleteStorageAccount)
-			storage.POST("/:id/test", storageHandler.TestStorageConnection)
-			storage.POST("/:id/sync", storageHandler.SyncStorageAccount)
+
+			// Write operations restricted to Developers and Admins
+			storageWrite := storage.Group("")
+			storageWrite.Use(middleware.DeveloperOrAdmin())
+			{
+				storageWrite.POST("", storageHandler.CreateStorageAccount)
+				storageWrite.PATCH("/:id", storageHandler.UpdateStorageAccount)
+				storageWrite.DELETE("/:id", storageHandler.DeleteStorageAccount)
+				storageWrite.POST("/:id/test", storageHandler.TestStorageConnection)
+				storageWrite.POST("/:id/sync", storageHandler.SyncStorageAccount)
+			}
 		}
 
 		// Media group routes
