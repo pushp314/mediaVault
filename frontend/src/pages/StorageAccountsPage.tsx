@@ -11,7 +11,6 @@ import {
     Loader2,
     X,
     RefreshCw,
-    ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { storageApi } from '../api';
@@ -472,56 +471,21 @@ export default function StorageAccountsPage() {
                                     </div>
                                 </div>
 
-                                {formData.provider !== 'cloudinary' && (
+                                {formData.provider === 'cloudinary' ? (
                                     <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                                {formData.provider === 'r2' ? 'Endpoint URL (Full R2 URL)' : 'Endpoint URL (Optional)'}
-                                            </label>
-                                            <input
-                                                required={formData.provider === 'r2'}
-                                                type="text"
-                                                placeholder="https://<id>.r2.cloudflarestorage.com"
-                                                className="input"
-                                                value={formData.endpoint_url}
-                                                onChange={e => setFormData({ ...formData, endpoint_url: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Public URL Base / CDN (Optional)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="https://pub-xxxx.r2.dev"
-                                                className="input"
-                                                value={formData.public_url_base}
-                                                onChange={e => setFormData({ ...formData, public_url_base: e.target.value })}
-                                            />
-                                            <p className="text-[10px] text-neutral-400 font-medium px-1 mt-1">
-                                                Required for public access if using R2 dev domains.
+                                        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-2">
+                                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Intern Note</p>
+                                            <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
+                                                Cloudinary uses your **Cloud Name** as a bucket. Find your **API Key** and **Secret** in the Cloudinary Settings Dashboard.
                                             </p>
                                         </div>
-                                    </div>
-                                )}
-
-                                <div className="bg-neutral-50 p-6 rounded-3xl space-y-6 border border-neutral-100">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-xs font-bold text-black uppercase tracking-widest pl-1">Security Credentials</h4>
-                                        {editingAccount && (
-                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
-                                                <ShieldCheck className="w-3 h-3" />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">Leave blank to keep current</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {formData.provider === 'cloudinary' ? (
                                         <div className="space-y-6">
                                             <div className="space-y-2">
                                                 <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Cloud Name</label>
                                                 <input
                                                     required={!editingAccount}
                                                     type="text"
-                                                    placeholder="my-cloud"
+                                                    placeholder="e.g. appnity-vault"
                                                     className="input"
                                                     value={formData.bucket_name}
                                                     onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
@@ -550,44 +514,93 @@ export default function StorageAccountsPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <div className="space-y-6">
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {formData.provider === 'r2' && (
+                                            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 mb-2">
+                                                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Intern Note</p>
+                                                <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
+                                                    For R2, the **Endpoint URL** is mandatory. It should look like: `https://[account-id].r2.cloudflarestorage.com`. Get your API tokens from the Cloudflare R2 dashboard.
+                                                </p>
+                                            </div>
+                                        )}
+                                        {formData.provider === 's3' && (
+                                            <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 mb-2">
+                                                <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Intern Note</p>
+                                                <p className="text-[11px] text-orange-700 leading-relaxed font-medium">
+                                                    Standard AWS S3 setup. Make sure the IAM user has `s3:PutObject`, `s3:GetObject`, and `s3:ListBucket` permissions.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Bucket Name</label>
+                                            <input
+                                                required={!editingAccount}
+                                                type="text"
+                                                placeholder="e.g. my-media-bucket"
+                                                className="input"
+                                                value={formData.bucket_name}
+                                                onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
+                                            />
+                                        </div>
+
+                                        {(formData.provider === 'r2' || formData.provider === 's3' || formData.provider === 'b2') && (
+                                            <div className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                                        {formData.provider === 'r2' ? 'Endpoint URL (Required)' : 'Endpoint URL (Optional)'}
+                                                    </label>
+                                                    <input
+                                                        required={formData.provider === 'r2'}
+                                                        type="text"
+                                                        placeholder={formData.provider === 'r2' ? 'https://<id>.r2.cloudflarestorage.com' : 'Only if using custom endpoint'}
+                                                        className="input"
+                                                        value={formData.endpoint_url}
+                                                        onChange={e => setFormData({ ...formData, endpoint_url: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Public URL Base (CDN)</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. https://cdn.example.com"
+                                                        className="input"
+                                                        value={formData.public_url_base}
+                                                        onChange={e => setFormData({ ...formData, public_url_base: e.target.value })}
+                                                    />
+                                                    <p className="text-[10px] text-neutral-400 font-medium px-1 mt-1">
+                                                        Used for generating public links to files.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                             <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Bucket Name</label>
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Access Key ID</label>
                                                 <input
                                                     required={!editingAccount}
                                                     type="text"
-                                                    placeholder="my-bucket-name"
                                                     className="input"
-                                                    value={formData.bucket_name}
-                                                    onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
+                                                    value={formData.accessKeyId}
+                                                    onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
                                                 />
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Access Key ID</label>
-                                                    <input
-                                                        required={!editingAccount}
-                                                        type="text"
-                                                        className="input"
-                                                        value={formData.accessKeyId}
-                                                        onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Secret Access Key</label>
-                                                    <input
-                                                        required={!editingAccount}
-                                                        type="password"
-                                                        className="input"
-                                                        value={formData.secretAccessKey}
-                                                        onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
-                                                    />
-                                                </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Secret Access Key</label>
+                                                <input
+                                                    required={!editingAccount}
+                                                    type="password"
+                                                    className="input"
+                                                    value={formData.secretAccessKey}
+                                                    onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
+                                                />
                                             </div>
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
 
                                 <label className="flex items-center gap-4 cursor-pointer group p-2">
                                     <div className="relative">
