@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -37,7 +38,15 @@ const queryClient = new QueryClient({
     },
 });
 
+import { useFeatureStore } from './store/featureStore';
+
 export default function App() {
+    const fetchFlags = useFeatureStore((state) => state.fetchFlags);
+
+    useEffect(() => {
+        fetchFlags();
+    }, [fetchFlags]);
+
     return (
         <QueryClientProvider client={queryClient}>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

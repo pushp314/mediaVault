@@ -392,33 +392,55 @@ func (r *Repository) IncrementDownloadCount(ctx context.Context, id uuid.UUID) e
 // CreateAuditLog creates an audit log entry
 func (r *Repository) CreateAuditLog(ctx context.Context, log *models.AuditLog) error {
 	query := `
-		INSERT INTO audit_logs (id, employee_id, employee_email, action, resource_type, resource_id, details, ip_address, user_agent, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO audit_logs (
+			id, employee_id, employee_email, action, severity, resource_type,
+			resource_id, details, ip_address, user_agent, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
-	log.ID = uuid.New()
-	log.CreatedAt = time.Now()
 
 	_, err := r.db.Exec(ctx, query,
-		log.ID, log.EmployeeID, log.EmployeeEmail, log.Action, log.ResourceType,
+		log.ID, log.EmployeeID, log.EmployeeEmail, log.Action, log.Severity, log.ResourceType,
 		log.ResourceID, log.Details, log.IPAddress, log.UserAgent, log.CreatedAt,
 	)
 	return err
 }
 
-// ListAuditLogs lists audit logs with pagination
-func (r *Repository) ListAuditLogs(ctx context.Context, page, pageSize int, resourceType string, resourceID *uuid.UUID) ([]models.AuditLog, int64, error) {
+// ListAuditLogs lists audit logs with pagination and filters
+func (r *Repository) ListAuditLogs(ctx context.Context, filter *models.AuditLogFilterRequest) ([]models.AuditLog, int64, error) {
 	conditions := []string{}
 	args := []any{}
 	argNum := 1
 
-	if resourceType != "" {
+	if filter.ResourceType != nil && *filter.ResourceType != "" {
 		conditions = append(conditions, fmt.Sprintf("resource_type = $%d", argNum))
-		args = append(args, resourceType)
+		args = append(args, *filter.ResourceType)
 		argNum++
 	}
-	if resourceID != nil {
-		conditions = append(conditions, fmt.Sprintf("resource_id = $%d", argNum))
-		args = append(args, *resourceID)
+	if filter.EmployeeID != nil {
+		conditions = append(conditions, fmt.Sprintf("employee_id = $%d", argNum))
+		args = append(args, *filter.EmployeeID)
+		argNum++
+	}
+	if filter.Action != nil {
+		conditions = append(conditions, fmt.Sprintf("action = $%d", argNum))
+		args = append(args, *filter.Action)
+		argNum++
+	}
+	if filter.Severity != nil {
+		conditions = append(conditions, fmt.Sprintf("severity = $%d", argNum))
+		args = append(args, *filter.Severity)
+		argNum++
+	}
+	if filter.StartDate != nil {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argNum))
+		args = append(args, *filter.StartDate)
+		argNum++
+	}
+	if filter.EndDate != nil {
+		// Add 23:59:59 to include the end date
+		end := filter.EndDate.Add(24 * time.Hour).Add(-time.Second)
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argNum))
+		args = append(args, end)
 		argNum++
 	}
 
@@ -435,14 +457,14 @@ func (r *Repository) ListAuditLogs(ctx context.Context, page, pageSize int, reso
 	}
 
 	// List
-	offset := (page - 1) * pageSize
+	offset := (filter.Page - 1) * filter.PageSize
 	query := fmt.Sprintf(`
-		SELECT id, employee_id, employee_email, action, resource_type, resource_id, details, ip_address, user_agent, created_at
+		SELECT id, employee_id, employee_email, action, severity, resource_type, resource_id, details, ip_address, user_agent, created_at
 		FROM audit_logs %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, whereClause, argNum, argNum+1)
-	args = append(args, pageSize, offset)
+	args = append(args, filter.PageSize, offset)
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
@@ -454,7 +476,7 @@ func (r *Repository) ListAuditLogs(ctx context.Context, page, pageSize int, reso
 	for rows.Next() {
 		var log models.AuditLog
 		if err := rows.Scan(
-			&log.ID, &log.EmployeeID, &log.EmployeeEmail, &log.Action,
+			&log.ID, &log.EmployeeID, &log.EmployeeEmail, &log.Action, &log.Severity,
 			&log.ResourceType, &log.ResourceID, &log.Details,
 			&log.IPAddress, &log.UserAgent, &log.CreatedAt,
 		); err != nil {

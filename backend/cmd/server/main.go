@@ -65,10 +65,11 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService)
 	mediaHandler := handlers.NewMediaHandler(mediaService, repo)
 	storageHandler := handlers.NewStorageHandler(storageService, mediaService)
-	groupHandler := handlers.NewGroupHandler(groupService)
+	groupHandler := handlers.NewGroupHandler(groupService, mediaService)
+	configHandler := handlers.NewConfigHandler(repo)
 
 	// Setup router
-	router := setupRouter(authService, authHandler, mediaHandler, storageHandler, groupHandler)
+	router := setupRouter(authService, authHandler, mediaHandler, storageHandler, groupHandler, configHandler)
 
 	// Create server
 	srv := &http.Server{
@@ -110,6 +111,7 @@ func setupRouter(
 	mediaHandler *handlers.MediaHandler,
 	storageHandler *handlers.StorageHandler,
 	groupHandler *handlers.GroupHandler,
+	configHandler *handlers.ConfigHandler,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -128,6 +130,12 @@ func setupRouter(
 	{
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/refresh", authHandler.RefreshToken)
+	}
+
+	// Config routes
+	config := api.Group("/config")
+	{
+		config.GET("/features", configHandler.GetFeatureFlags)
 	}
 
 	// Protected routes
@@ -174,6 +182,15 @@ func setupRouter(
 				storageWrite.DELETE("/:id", storageHandler.DeleteStorageAccount)
 				storageWrite.POST("/:id/test", storageHandler.TestStorageConnection)
 				storageWrite.POST("/:id/sync", storageHandler.SyncStorageAccount)
+			}
+
+			// Access management (Admin only)
+			storageAccess := storage.Group("/:id/access")
+			storageAccess.Use(middleware.AdminOnly())
+			{
+				storageAccess.GET("", storageHandler.GetStorageAccountAccess)
+				storageAccess.POST("", storageHandler.GrantStorageAccess)
+				storageAccess.DELETE("/:employee_id", storageHandler.RevokeStorageAccess)
 			}
 		}
 

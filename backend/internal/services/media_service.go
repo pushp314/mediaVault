@@ -147,7 +147,7 @@ func (s *MediaService) CompleteUpload(ctx context.Context, req *models.UploadCom
 	}
 
 	// Log the audit
-	s.logAudit(ctx, employee, models.AuditActionUpload, "media", &media.ID, map[string]any{
+	s.logAudit(ctx, employee, models.AuditActionUpload, models.SeverityInfo, "media", &media.ID, map[string]any{
 		"filename": media.OriginalFilename,
 		"size":     req.FileSizeBytes,
 		"storage":  storageAccount.Name,
@@ -220,7 +220,7 @@ func (s *MediaService) DeleteMedia(ctx context.Context, id uuid.UUID, employee *
 	}
 
 	// Log audit
-	s.logAudit(ctx, employee, models.AuditActionDelete, "media", &id, map[string]any{
+	s.logAudit(ctx, employee, models.AuditActionDelete, models.SeverityWarning, "media", &id, map[string]any{
 		"filename": media.OriginalFilename,
 	})
 
@@ -276,7 +276,7 @@ func (s *MediaService) MoveMedia(ctx context.Context, id uuid.UUID, req *models.
 	}
 
 	// Log audit
-	s.logAudit(ctx, employee, models.AuditActionMove, "media", &id, map[string]any{
+	s.logAudit(ctx, employee, models.AuditActionMove, models.SeverityInfo, "media", &id, map[string]any{
 		"new_folder": req.FolderPath,
 	})
 
@@ -533,17 +533,41 @@ func (s *MediaService) determineMediaType(contentType string) models.MediaType {
 }
 
 // logAudit creates an audit log entry
-func (s *MediaService) logAudit(_ context.Context, employee *models.Employee, action models.AuditAction, resourceType string, resourceID *uuid.UUID, details map[string]any) {
+func (s *MediaService) logAudit(_ context.Context, employee *models.Employee, action models.AuditAction, severity models.AuditSeverity, resourceType string, resourceID *uuid.UUID, details map[string]any) {
 	log := &models.AuditLog{
+		ID:            uuid.New(),
 		EmployeeID:    employee.ID,
 		EmployeeEmail: employee.Email,
 		Action:        action,
+		Severity:      severity,
 		ResourceType:  resourceType,
 		ResourceID:    resourceID,
 		Details:       details,
+		CreatedAt:     time.Now(),
 	}
 	// Fire and forget - don't block on audit logging
-	go s.repo.CreateAuditLog(context.Background(), log)
+	go func() {
+		enabled, _ := s.repo.GetFeatureFlag(context.Background(), "enable_audit_logs")
+		if enabled {
+			_ = s.repo.CreateAuditLog(context.Background(), log)
+		}
+	}()
+}
+
+// LogAuditRaw logs a pre-constructed audit log
+func (s *MediaService) LogAuditRaw(ctx context.Context, log *models.AuditLog) {
+	if log.ID == uuid.Nil {
+		log.ID = uuid.New()
+	}
+	if log.CreatedAt.IsZero() {
+		log.CreatedAt = time.Now()
+	}
+	go func() {
+		enabled, _ := s.repo.GetFeatureFlag(context.Background(), "enable_audit_logs")
+		if enabled {
+			_ = s.repo.CreateAuditLog(context.Background(), log)
+		}
+	}()
 }
 
 // DetermineContentType guesses content type from filename

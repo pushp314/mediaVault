@@ -47,6 +47,15 @@ const (
 	AuditActionUpdate   AuditAction = "update"
 	AuditActionView     AuditAction = "view"
 	AuditActionDownload AuditAction = "download"
+	AuditActionCreate   AuditAction = "create"
+)
+
+type AuditSeverity string
+
+const (
+	SeverityInfo     AuditSeverity = "info"
+	SeverityWarning  AuditSeverity = "warning"
+	SeverityCritical AuditSeverity = "critical"
 )
 
 // Employee represents an internal user
@@ -77,6 +86,7 @@ type StorageAccount struct {
 	PublicURLBase        *string      `json:"public_url_base,omitempty" db:"public_url_base"`
 	IsDefault            bool         `json:"is_default" db:"is_default"`
 	IsActive             bool         `json:"is_active" db:"is_active"`
+	IsPublic             bool         `json:"is_public" db:"is_public"`
 	MaxFileSizeMB        int          `json:"max_file_size_mb" db:"max_file_size_mb"`
 	AllowedTypes         []MediaType  `json:"allowed_types" db:"allowed_types"`
 	CreatedBy            uuid.UUID    `json:"created_by" db:"created_by"`
@@ -168,6 +178,7 @@ type AuditLog struct {
 	EmployeeID    uuid.UUID      `json:"employee_id" db:"employee_id"`
 	EmployeeEmail string         `json:"employee_email" db:"employee_email"`
 	Action        AuditAction    `json:"action" db:"action"`
+	Severity      AuditSeverity  `json:"severity" db:"severity"`
 	ResourceType  string         `json:"resource_type" db:"resource_type"`
 	ResourceID    *uuid.UUID     `json:"resource_id,omitempty" db:"resource_id"`
 	Details       map[string]any `json:"details" db:"details"`
@@ -202,4 +213,20 @@ type RefreshToken struct {
 	ExpiresAt  time.Time  `json:"expires_at" db:"expires_at"`
 	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
 	RevokedAt  *time.Time `json:"-" db:"revoked_at"`
+}
+
+// StorageAccountAccess represents a user's access to a storage account
+type StorageAccountAccess struct {
+	ID               uuid.UUID `json:"id" db:"id"`
+	StorageAccountID uuid.UUID `json:"storage_account_id" db:"storage_account_id"`
+	EmployeeID       uuid.UUID `json:"employee_id" db:"employee_id"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+}
+
+// FeatureFlag represents a system feature toggle
+type FeatureFlag struct {
+	Key         string    `json:"key" db:"key"`
+	IsEnabled   bool      `json:"is_enabled" db:"is_enabled"`
+	Description string    `json:"description" db:"description"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }

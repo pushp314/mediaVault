@@ -26,6 +26,7 @@ export interface StorageAccount {
     public_url_base?: string;
     is_default: boolean;
     is_active: boolean;
+    is_public: boolean;
     max_file_size_mb: number;
     // Specific limits 
     max_image_size_mb?: number;
@@ -173,6 +174,7 @@ export interface CreateStorageAccountRequest {
     endpoint_url?: string;
     public_url_base?: string;
     is_default?: boolean;
+    is_public?: boolean;
     max_file_size_mb?: number;
     allowed_types?: MediaType[];
 }

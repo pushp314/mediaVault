@@ -63,6 +63,7 @@ func (s *StorageService) CreateStorageAccount(ctx context.Context, req *models.C
 		PublicURLBase:        req.PublicURLBase,
 		IsDefault:            isDefault,
 		IsActive:             true,
+		IsPublic:             req.IsPublic,
 		MaxFileSizeMB:        req.MaxFileSizeMB,
 		AllowedTypes:         req.AllowedTypes,
 		CreatedBy:            employeeID,
@@ -92,13 +93,28 @@ func (s *StorageService) CreateStorageAccount(ctx context.Context, req *models.C
 	}, nil
 }
 
-// ListStorageAccounts lists storage accounts, potentially filtered by ownership
+// ListStorageAccounts lists storage accounts based on permissions
 func (s *StorageService) ListStorageAccounts(ctx context.Context, employeeID uuid.UUID, role models.Role) ([]models.StorageAccountWithStats, error) {
-	var ownerID *uuid.UUID
+	var uidPtr *uuid.UUID
 	if role != models.RoleAdmin {
-		ownerID = &employeeID
+		uidPtr = &employeeID
 	}
-	return s.repo.ListStorageAccounts(ctx, ownerID)
+	return s.repo.ListStorageAccounts(ctx, uidPtr)
+}
+
+// GrantStorageAccess grants access to a storage account
+func (s *StorageService) GrantStorageAccess(ctx context.Context, accountID, employeeID uuid.UUID) error {
+	return s.repo.GrantStorageAccess(ctx, accountID, employeeID)
+}
+
+// RevokeStorageAccess revokes access to a storage account
+func (s *StorageService) RevokeStorageAccess(ctx context.Context, accountID, employeeID uuid.UUID) error {
+	return s.repo.RevokeStorageAccess(ctx, accountID, employeeID)
+}
+
+// GetStorageAccountAccess returns a list of users with access to a storage account
+func (s *StorageService) GetStorageAccountAccess(ctx context.Context, accountID uuid.UUID) ([]models.Employee, error) {
+	return s.repo.GetStorageAccountAccessList(ctx, accountID)
 }
 
 // GetStorageAccount gets a storage account by ID
@@ -147,6 +163,9 @@ func (s *StorageService) UpdateStorageAccount(ctx context.Context, id uuid.UUID,
 	}
 	if req.IsActive != nil {
 		account.IsActive = *req.IsActive
+	}
+	if req.IsPublic != nil {
+		account.IsPublic = *req.IsPublic
 	}
 	if req.MaxFileSizeMB != nil {
 		account.MaxFileSizeMB = *req.MaxFileSizeMB

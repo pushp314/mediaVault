@@ -11,7 +11,7 @@ import {
     ChevronDown,
     Search,
     Plus,
-    Activity,
+    ShieldCheck,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuthStore } from '../../store/authStore';
@@ -26,13 +26,21 @@ const navigation = [
 
 const adminNavigation = [
     { name: 'Employees', href: '/employees', icon: Users },
-    { name: 'Activity', href: '/activity', icon: Activity },
+    { name: 'Security Console', href: '/activity', icon: ShieldCheck },
 ];
+
+import { useFeatureStore } from '../../store/featureStore';
 
 export default function DashboardLayout() {
     const navigate = useNavigate();
     const { employee, logout } = useAuthStore();
     const { groups, setGroups, setStorageAccounts } = useMediaStore();
+    const isEnabled = useFeatureStore((state) => state.isEnabled);
+
+    const filteredAdminNavigation = adminNavigation.filter(item => {
+        if (item.href === '/activity') return isEnabled('enable_audit_logs');
+        return true;
+    });
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -125,7 +133,7 @@ export default function DashboardLayout() {
                                 Administration
                             </div>
                             <div className="space-y-1">
-                                {adminNavigation.map((item) => (
+                                {filteredAdminNavigation.map((item) => (
                                     <NavLink
                                         key={item.name}
                                         to={item.href}

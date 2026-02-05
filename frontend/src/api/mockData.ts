@@ -17,6 +17,7 @@ export const mockStorageAccounts: StorageAccountWithStats[] = [
         name: 'Primary CDN (Cloudinary)',
         provider: 'cloudinary',
         is_default: true,
+        is_public: true,
         is_active: true,
         max_file_size_mb: 100,
         allowed_types: ['image', 'video'],
@@ -35,6 +36,7 @@ export const mockStorageAccounts: StorageAccountWithStats[] = [
         bucket_name: 'media-archive',
         region: 'auto',
         is_default: false,
+        is_public: true,
         is_active: true,
         max_file_size_mb: 500,
         allowed_types: ['image', 'video', 'document', 'other'],
@@ -53,6 +55,7 @@ export const mockStorageAccounts: StorageAccountWithStats[] = [
         bucket_name: 'company-backups',
         region: 'us-east-1',
         is_default: false,
+        is_public: false,
         is_active: true,
         max_file_size_mb: 1000,
         allowed_types: ['image', 'video', 'document', 'other'],
@@ -186,8 +189,52 @@ export const mockEmployees: Employee[] = [
 
 // Audit log entries
 export const mockAuditLogs = [
-    { id: '1', action: 'upload', actor: 'Admin User', target: 'hero-banner-1.jpg', provider: 'Cloudinary', timestamp: new Date(Date.now() - 60000).toISOString() },
-    { id: '2', action: 'delete', actor: 'Sarah Developer', target: 'old-logo.png', provider: 'R2', timestamp: new Date(Date.now() - 3600000).toISOString() },
-    { id: '3', action: 'move', actor: 'Mike Marketing', target: 'campaign-video.mp4', provider: 'S3', timestamp: new Date(Date.now() - 7200000).toISOString() },
-    { id: '4', action: 'upload', actor: 'Admin User', target: 'product-shot-5.jpg', provider: 'Cloudinary', timestamp: new Date(Date.now() - 10800000).toISOString() },
+    {
+        id: '1',
+        action: 'upload',
+        severity: 'info',
+        employee_id: '1',
+        employee_email: 'admin@company.com',
+        resource_type: 'media',
+        resource_id: 'm-1',
+        target: 'hero-banner-1.jpg',
+        details: { filename: 'hero-banner-1.jpg', storage: 'Cloudinary' },
+        created_at: new Date(Date.now() - 60000).toISOString()
+    },
+    {
+        id: '2',
+        action: 'delete',
+        severity: 'warning',
+        employee_id: '2',
+        employee_email: 'dev@company.com',
+        resource_type: 'media',
+        resource_id: 'm-2',
+        target: 'old-logo.png',
+        details: { filename: 'old-logo.png', reason: 'Redundant asset' },
+        created_at: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+        id: '3',
+        action: 'move',
+        severity: 'info',
+        employee_id: '3',
+        employee_email: 'marketing@company.com',
+        resource_type: 'media',
+        resource_id: 'm-3',
+        target: 'campaign-video.mp4',
+        details: { filename: 'campaign-video.mp4', storage: 'S3-Arch' },
+        created_at: new Date(Date.now() - 7200000).toISOString()
+    },
+    {
+        id: '4',
+        action: 'update',
+        severity: 'critical',
+        employee_id: '1',
+        employee_email: 'admin@company.com',
+        resource_type: 'storage_account',
+        resource_id: 'sa-1',
+        target: 'Primary CDN',
+        details: { name: 'Primary CDN', changes: { max_file_size_mb: 200 } },
+        created_at: new Date(Date.now() - 10800000).toISOString()
+    },
 ];

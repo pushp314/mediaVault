@@ -54,6 +54,21 @@ func (h *StorageHandler) CreateStorageAccount(c *gin.Context) {
 	}
 
 	log.Printf("[StorageHandler] CreateStorageAccount: Success, account_id=%s", account.ID)
+
+	// Log audit
+	h.mediaService.LogAuditRaw(c.Request.Context(), &models.AuditLog{
+		EmployeeID:    employeeID,
+		EmployeeEmail: c.MustGet("employee_email").(string),
+		Action:        models.AuditActionCreate,
+		Severity:      models.SeverityWarning, // Creating infra is warning-level
+		ResourceType:  "storage_account",
+		ResourceID:    &account.ID,
+		Details: map[string]any{
+			"name":     account.Name,
+			"provider": account.Provider,
+		},
+	})
+
 	c.JSON(http.StatusCreated, account)
 }
 
@@ -130,6 +145,20 @@ func (h *StorageHandler) UpdateStorageAccount(c *gin.Context) {
 		return
 	}
 
+	employeeID := c.MustGet("employee_id").(uuid.UUID)
+	// Log audit
+	h.mediaService.LogAuditRaw(c.Request.Context(), &models.AuditLog{
+		EmployeeID:    employeeID,
+		EmployeeEmail: c.MustGet("employee_email").(string),
+		Action:        models.AuditActionUpdate,
+		Severity:      models.SeverityWarning,
+		ResourceType:  "storage_account",
+		ResourceID:    &id,
+		Details: map[string]any{
+			"name": account.Name,
+		},
+	})
+
 	c.JSON(http.StatusOK, account)
 }
 
@@ -152,6 +181,17 @@ func (h *StorageHandler) DeleteStorageAccount(c *gin.Context) {
 		})
 		return
 	}
+
+	employeeID := c.MustGet("employee_id").(uuid.UUID)
+	// Log audit
+	h.mediaService.LogAuditRaw(c.Request.Context(), &models.AuditLog{
+		EmployeeID:    employeeID,
+		EmployeeEmail: c.MustGet("employee_email").(string),
+		Action:        models.AuditActionDelete,
+		Severity:      models.SeverityCritical,
+		ResourceType:  "storage_account",
+		ResourceID:    &id,
+	})
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Storage account deleted successfully",
@@ -184,6 +224,99 @@ func (h *StorageHandler) TestStorageConnection(c *gin.Context) {
 	})
 }
 
+// GrantStorageAccess grants access to a storage account
+// POST /api/admin/storage-accounts/:id/access
+func (h *StorageHandler) GrantStorageAccess(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid storage account ID",
+			Code:  "INVALID_ID",
+		})
+		return
+	}
+
+	var req models.GrantStorageAccessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "Invalid request body",
+			Code:    "INVALID_REQUEST",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.storageService.GrantStorageAccess(c.Request.Context(), id, req.EmployeeID); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to grant access",
+			Code:  "GRANT_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Access granted successfully",
+	})
+}
+
+// RevokeStorageAccess revokes access to a storage account
+// DELETE /api/admin/storage-accounts/:id/access/:employee_id
+func (h *StorageHandler) RevokeStorageAccess(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid storage account ID",
+			Code:  "INVALID_ID",
+		})
+		return
+	}
+
+	employeeID, err := uuid.Parse(c.Param("employee_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid employee ID",
+			Code:  "INVALID_ID",
+		})
+		return
+	}
+
+	if err := h.storageService.RevokeStorageAccess(c.Request.Context(), id, employeeID); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to revoke access",
+			Code:  "REVOKE_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Access revoked successfully",
+	})
+}
+
+// GetStorageAccountAccess gets users with access to a storage account
+// GET /api/admin/storage-accounts/:id/access
+func (h *StorageHandler) GetStorageAccountAccess(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid storage account ID",
+			Code:  "INVALID_ID",
+		})
+		return
+	}
+
+	users, err := h.storageService.GetStorageAccountAccess(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get access list",
+			Code:  "GET_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}
+
 // SyncStorageAccount syncs files from the storage provider
 // POST /api/storage-accounts/:id/sync
 func (h *StorageHandler) SyncStorageAccount(c *gin.Context) {
@@ -214,11 +347,15 @@ func (h *StorageHandler) SyncStorageAccount(c *gin.Context) {
 // GroupHandler handles media group endpoints
 type GroupHandler struct {
 	groupService *services.GroupService
+	mediaService *services.MediaService
 }
 
 // NewGroupHandler creates a new group handler
-func NewGroupHandler(groupService *services.GroupService) *GroupHandler {
-	return &GroupHandler{groupService: groupService}
+func NewGroupHandler(groupService *services.GroupService, mediaService *services.MediaService) *GroupHandler {
+	return &GroupHandler{
+		groupService: groupService,
+		mediaService: mediaService,
+	}
 }
 
 // CreateMediaGroup creates a new media group
@@ -245,6 +382,19 @@ func (h *GroupHandler) CreateMediaGroup(c *gin.Context) {
 		})
 		return
 	}
+
+	// Log audit
+	h.mediaService.LogAuditRaw(c.Request.Context(), &models.AuditLog{
+		EmployeeID:    employeeID,
+		EmployeeEmail: c.MustGet("employee_email").(string),
+		Action:        models.AuditActionCreate,
+		Severity:      models.SeverityInfo,
+		ResourceType:  "media_group",
+		ResourceID:    &group.ID,
+		Details: map[string]any{
+			"name": group.Name,
+		},
+	})
 
 	c.JSON(http.StatusCreated, group)
 }

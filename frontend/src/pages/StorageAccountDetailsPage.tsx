@@ -18,9 +18,14 @@ import {
     FileText,
     Layers,
     Copy,
+    Users,
+    UserPlus,
+    UserMinus,
+    Search,
 } from 'lucide-react';
-import { storageApi, mediaApi } from '../api';
-import type { StorageAccountWithStats, MediaWithDetails, ProviderType, MediaType } from '../types';
+import { storageApi, mediaApi, adminApi } from '../api';
+import { useAuthStore } from '../store/authStore';
+import type { StorageAccountWithStats, MediaWithDetails, ProviderType, MediaType, Employee } from '../types';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { Pagination } from '../components/common/Pagination';
@@ -60,6 +65,10 @@ export default function StorageAccountDetailsPage() {
     const [activeTab, setActiveTab] = useState<MediaType | 'all'>('all');
     const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [showAccessModal, setShowAccessModal] = useState(false);
+    const [userSearchText, setUserSearchText] = useState('');
+    const currentUser = useAuthStore(state => state.employee);
+    const isAdmin = currentUser?.role === 'admin';
 
     // Queries
     const { data: account, isLoading: isAccountLoading, error: accountError } = useQuery<StorageAccountWithStats>({
@@ -83,6 +92,18 @@ export default function StorageAccountDetailsPage() {
             page_size: 50,
         }),
         enabled: !!id,
+    });
+
+    const { data: accessList, refetch: refetchAccess } = useQuery<Employee[]>({
+        queryKey: ['storage-account-access', id],
+        queryFn: () => storageApi.getAccess(id!),
+        enabled: !!id && isAdmin,
+    });
+
+    const { data: allEmployees } = useQuery({
+        queryKey: ['employees'],
+        queryFn: () => adminApi.listEmployees(1, 100),
+        enabled: showAccessModal && isAdmin,
     });
 
     const media = mediaResponse?.data || [];
@@ -143,6 +164,26 @@ export default function StorageAccountDetailsPage() {
         setSelectedIds(prev =>
             prev.includes(mediaId) ? prev.filter(i => i !== mediaId) : [...prev, mediaId]
         );
+    };
+
+    const handleGrantAccess = async (employeeId: string) => {
+        try {
+            await storageApi.grantAccess(id!, employeeId);
+            toast.success('Access granted');
+            refetchAccess();
+        } catch {
+            toast.error('Failed to grant access');
+        }
+    };
+
+    const handleRevokeAccess = async (employeeId: string) => {
+        try {
+            await storageApi.revokeAccess(id!, employeeId);
+            toast.success('Access revoked');
+            refetchAccess();
+        } catch {
+            toast.error('Failed to revoke access');
+        }
     };
 
     const selectAll = useCallback(() => {
@@ -237,9 +278,20 @@ export default function StorageAccountDetailsPage() {
                 </div>
                 <div className="p-6 bg-white rounded-3xl border border-neutral-200">
                     <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest block mb-2">Status</span>
-                    <div className="flex items-center gap-2">
-                        <div className={clsx("w-3 h-3 rounded-full", account.is_active ? "bg-emerald-500" : "bg-neutral-300")} />
-                        <span className="text-lg font-black">{account.is_active ? "Active" : "Inactive"}</span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className={clsx("w-3 h-3 rounded-full", account.is_active ? "bg-emerald-500" : "bg-neutral-300")} />
+                            <span className="text-lg font-black">{account.is_active ? "Active" : "Inactive"}</span>
+                        </div>
+                        {isAdmin && (
+                            <button
+                                onClick={() => setShowAccessModal(true)}
+                                className="p-2 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-all border border-neutral-100"
+                                title="Manage Access"
+                            >
+                                <Users className="w-4 h-4 text-black" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -351,6 +403,128 @@ export default function StorageAccountDetailsPage() {
                             )}
                         </div>
                         <button onClick={() => setSelectedMediaIndex((prev) => (prev! + 1) % media.length)} className="p-6 rounded-full bg-white/5 hover:bg-white text-white hover:text-black transition-all"><ChevronRight className="w-10 h-10" /></button>
+                    </div>
+                </div>
+            )}
+
+            {/* Access Management Modal */}
+            {showAccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAccessModal(false)} />
+                    <div className="relative bg-white border border-neutral-200 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                        <div className="p-8 pb-4 flex items-center justify-between border-b border-neutral-100">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center border border-neutral-100">
+                                    <Users className="w-6 h-6 text-black" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-extrabold text-black">Manage Access</h2>
+                                    <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">
+                                        Control which users can see and use this storage account
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowAccessModal(false)} className="p-3 bg-neutral-50 border border-neutral-100 rounded-2xl hover:bg-neutral-100 transition-all">
+                                <X className="w-5 h-5 text-neutral-500" />
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-8 overflow-y-auto">
+                            {/* Current Access List */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Users with Access</h3>
+                                {account.is_public ? (
+                                    <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
+                                        <p className="text-emerald-800 font-bold text-sm">This is a public storage account.</p>
+                                        <p className="text-emerald-700 text-xs mt-1">All registered users have full access to this account.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {accessList?.length === 0 ? (
+                                            <p className="text-neutral-400 text-sm font-medium italic p-4 text-center">No additional users have been granted access.</p>
+                                        ) : (
+                                            accessList?.map(user => (
+                                                <div key={user.id} className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-neutral-100 text-xs font-black">
+                                                            {user.full_name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-black">{user.full_name}</p>
+                                                            <p className="text-[10px] text-neutral-400 font-medium">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    {user.id !== account.created_by && (
+                                                        <button
+                                                            onClick={() => handleRevokeAccess(user.id)}
+                                                            className="p-2 text-neutral-400 hover:text-red-500 transition-colors"
+                                                            title="Revoke Access"
+                                                        >
+                                                            <UserMinus className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {user.id === account.created_by && (
+                                                        <span className="text-[10px] font-bold text-black bg-white border border-neutral-100 px-2 py-1 rounded-full uppercase tracking-widest">Owner</span>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Add User Section */}
+                            {!account.is_public && (
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Grant New Access</h3>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                            <Search className="w-4 h-4 text-neutral-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by name or email..."
+                                            className="input pl-11"
+                                            value={userSearchText}
+                                            onChange={e => setUserSearchText(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {allEmployees?.data
+                                            .filter(emp =>
+                                                !accessList?.find(a => a.id === emp.id) &&
+                                                emp.id !== account.created_by &&
+                                                (emp.full_name.toLowerCase().includes(userSearchText.toLowerCase()) ||
+                                                    emp.email.toLowerCase().includes(userSearchText.toLowerCase()))
+                                            )
+                                            .map(emp => (
+                                                <div key={emp.id} className="flex items-center justify-between p-3 hover:bg-neutral-50 rounded-2xl transition-colors group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-[10px] font-black group-hover:bg-white transition-colors">
+                                                            {emp.full_name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-black">{emp.full_name}</p>
+                                                            <p className="text-[9px] text-neutral-400 font-medium">{emp.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleGrantAccess(emp.id)}
+                                                        className="p-2 text-neutral-400 hover:text-black transition-colors"
+                                                        title="Grant Access"
+                                                    >
+                                                        <UserPlus className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        {userSearchText && allEmployees?.data.filter(emp => !accessList?.find(a => a.id === emp.id) && emp.id !== account.created_by && (emp.full_name.toLowerCase().includes(userSearchText.toLowerCase()) || emp.email.toLowerCase().includes(userSearchText.toLowerCase()))).length === 0 && (
+                                            <p className="text-center py-4 text-xs font-medium text-neutral-400">No matching users found.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

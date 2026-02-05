@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -40,6 +42,7 @@ type CreateStorageAccountRequest struct {
 	EndpointURL   *string           `json:"endpoint_url,omitempty"`
 	PublicURLBase *string           `json:"public_url_base,omitempty"`
 	IsDefault     bool              `json:"is_default"`
+	IsPublic      bool              `json:"is_public"`
 	MaxFileSizeMB int               `json:"max_file_size_mb"`
 	AllowedTypes  []MediaType       `json:"allowed_types"`
 }
@@ -53,9 +56,15 @@ type UpdateStorageAccountRequest struct {
 	EndpointURL   *string           `json:"endpoint_url,omitempty"`
 	PublicURLBase *string           `json:"public_url_base,omitempty"`
 	IsDefault     *bool             `json:"is_default,omitempty"`
+	IsPublic      *bool             `json:"is_public,omitempty"`
 	IsActive      *bool             `json:"is_active,omitempty"`
 	MaxFileSizeMB *int              `json:"max_file_size_mb,omitempty"`
 	AllowedTypes  []MediaType       `json:"allowed_types,omitempty"`
+}
+
+// GrantStorageAccessRequest for granting user access to a storage account
+type GrantStorageAccessRequest struct {
+	EmployeeID uuid.UUID `json:"employee_id" binding:"required"`
 }
 
 // CreateMediaGroupRequest for creating media groups
@@ -115,6 +124,18 @@ type MediaFilterRequest struct {
 	PageSize         int        `form:"page_size,default=50"`
 	SortBy           string     `form:"sort_by,default=created_at"`
 	SortOrder        string     `form:"sort_order,default=desc"`
+}
+
+// AuditLogFilterRequest for filtering audit logs
+type AuditLogFilterRequest struct {
+	EmployeeID   *uuid.UUID     `form:"employee_id"`
+	Action       *AuditAction   `form:"action"`
+	Severity     *AuditSeverity `form:"severity"`
+	ResourceType *string        `form:"resource_type"`
+	StartDate    *time.Time     `form:"start_date" time_format:"2006-01-02"`
+	EndDate      *time.Time     `form:"end_date" time_format:"2006-01-02"`
+	Page         int            `form:"page,default=1"`
+	PageSize     int            `form:"page_size,default=50"`
 }
 
 // CreateRoutingRuleRequest for smart routing

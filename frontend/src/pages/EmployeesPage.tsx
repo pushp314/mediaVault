@@ -36,11 +36,11 @@ export default function EmployeesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Form state
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
     const [role, setRole] = useState<Role>('viewer');
+    const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
     useEffect(() => {
         loadEmployees();
@@ -63,18 +63,28 @@ export default function EmployeesPage() {
         setPassword('');
         setFullName('');
         setRole('viewer');
+        setEditingEmployee(null);
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (emp: Employee) => {
+        setEditingEmployee(emp);
+        setFullName(emp.full_name);
+        setEmail(emp.email);
+        setRole(emp.role);
+        setPassword('');
         setIsModalOpen(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!email || !password || !fullName) {
+        if (!email || (!editingEmployee && !password) || !fullName) {
             toast.error('Please fill all required fields');
             return;
         }
 
-        if (password.length < 8) {
+        if (!editingEmployee && password.length < 8) {
             toast.error('Password must be at least 8 characters');
             return;
         }
@@ -82,17 +92,25 @@ export default function EmployeesPage() {
         setIsSubmitting(true);
 
         try {
-            await adminApi.createEmployee({
-                email,
-                password,
-                full_name: fullName,
-                role,
-            });
-            toast.success('Employee created');
+            if (editingEmployee) {
+                await adminApi.updateEmployee(editingEmployee.id, {
+                    full_name: fullName,
+                    role: role,
+                });
+                toast.success('Member updated');
+            } else {
+                await adminApi.createEmployee({
+                    email,
+                    password,
+                    full_name: fullName,
+                    role,
+                });
+                toast.success('Member created');
+            }
             loadEmployees();
             setIsModalOpen(false);
         } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to create employee');
+            toast.error(error.response?.data?.error || 'Failed to sync member data');
         } finally {
             setIsSubmitting(false);
         }
@@ -213,7 +231,14 @@ export default function EmployeesPage() {
                                             }
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => openEditModal(emp)}
+                                                    className="p-2.5 bg-white border border-neutral-200 rounded-xl hover:border-black hover:text-black transition-all shadow-sm"
+                                                    title="Edit Member"
+                                                >
+                                                    <User className="w-5 h-5" />
+                                                </button>
                                                 <button
                                                     onClick={() => deleteEmployee(emp)}
                                                     className="p-2.5 bg-white border border-neutral-200 rounded-xl hover:border-red-600 hover:text-red-600 transition-all shadow-sm"
@@ -245,14 +270,21 @@ export default function EmployeesPage() {
                 </div>
             )}
 
-            {/* Create Modal */}
+            {/* Create/Edit Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
 
-                    <div className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                    <div className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                         <div className="flex items-center justify-between px-10 py-8 border-b border-neutral-100">
-                            <h2 className="text-3xl font-extrabold text-black">Add Member</h2>
+                            <div>
+                                <h2 className="text-3xl font-extrabold text-black">
+                                    {editingEmployee ? 'Adjust Privileges' : 'Invite Member'}
+                                </h2>
+                                <p className="text-neutral-400 text-[10px] font-bold uppercase tracking-widest mt-1 pl-1">
+                                    {editingEmployee ? `Editing security profile for ${editingEmployee.full_name}` : 'Provisioning new system credentials'}
+                                </p>
+                            </div>
                             <button
                                 onClick={() => setIsModalOpen(false)}
                                 className="p-4 bg-neutral-50 rounded-2xl hover:bg-neutral-100 transition-all"
@@ -261,80 +293,111 @@ export default function EmployeesPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-10 space-y-8">
-                            <div className="space-y-3">
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                    Full Name *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    placeholder="Enter full name"
-                                    className="input rounded-2xl"
-                                    autoFocus
-                                />
+                        <form onSubmit={handleSubmit} className="p-10 space-y-10 overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <div className="space-y-8">
+                                    <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1 border-l-2 border-black ml-1">Identity Profile</h3>
+
+                                    <div className="space-y-3">
+                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                            Official Designation *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                            placeholder="e.g. Satya Nadella"
+                                            className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                            Corporate Email *
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            readOnly={!!editingEmployee}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="email@company.com"
+                                            className={clsx(
+                                                "input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all",
+                                                editingEmployee && "opacity-50 cursor-not-allowed bg-neutral-100"
+                                            )}
+                                        />
+                                        {editingEmployee && (
+                                            <p className="text-[10px] text-neutral-400 font-medium px-1">Email identification is fixed once provisioned.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-8">
+                                    <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1 border-l-2 border-black ml-1">Access Protocol</h3>
+
+                                    {!editingEmployee && (
+                                        <div className="space-y-3">
+                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                                Security Key *
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="Initialize complex sequence"
+                                                className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-3">
+                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                            Permission Level *
+                                        </label>
+                                        <select
+                                            value={role}
+                                            onChange={(e) => setRole(e.target.value as Role)}
+                                            className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                        >
+                                            <option value="viewer">Viewer - Read only clearance</option>
+                                            <option value="marketing">Marketing - Content orchestration</option>
+                                            <option value="developer">Developer - Infrastructure access</option>
+                                            <option value="admin">Admin - Full sovereignty</option>
+                                        </select>
+                                    </div>
+
+                                    {editingEmployee && (
+                                        <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                                <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Authority Lock</span>
+                                            </div>
+                                            <p className="text-[11px] text-amber-700 leading-relaxed font-semibold">
+                                                Changing a member's role will immediately revoke their active sessions and apply new clearance protocols.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                    Email Address *
-                                </label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="email@company.com"
-                                    className="input rounded-2xl"
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                    Initial Password *
-                                </label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Minimum 8 characters"
-                                    className="input rounded-2xl"
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                    Access Role *
-                                </label>
-                                <select
-                                    value={role}
-                                    onChange={(e) => setRole(e.target.value as Role)}
-                                    className="input rounded-2xl"
-                                >
-                                    <option value="viewer">Viewer - Read only</option>
-                                    <option value="marketing">Marketing - Manage content</option>
-                                    <option value="developer">Developer - System access</option>
-                                    <option value="admin">Admin - Full access</option>
-                                </select>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-4 pt-6">
+                            <div className="flex items-center justify-end gap-4 pt-10 border-t border-neutral-100 mt-6">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="btn-secondary rounded-2xl px-8 py-4"
+                                    className="px-8 py-4 bg-neutral-50 text-neutral-500 font-bold uppercase tracking-widest text-[10px] rounded-2xl hover:bg-neutral-100 transition-all border border-neutral-100"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="btn-primary rounded-2xl px-10 py-4"
+                                    className="px-12 py-4 bg-black text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-neutral-800 shadow-2xl transition-all disabled:opacity-50"
                                 >
                                     {isSubmitting ? (
-                                        'Creating...'
+                                        'Processing...'
                                     ) : (
-                                        'Create Account'
+                                        editingEmployee ? 'Sync Profile' : 'Grant Clearances'
                                     )}
                                 </button>
                             </div>

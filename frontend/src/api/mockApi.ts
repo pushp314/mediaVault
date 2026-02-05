@@ -131,7 +131,13 @@ export const mockGroupApi = {
 export const mockAdminApi = {
     async listEmployees() {
         await delay(300);
-        return { data: mockEmployees, total: mockEmployees.length };
+        return {
+            data: mockEmployees,
+            total: mockEmployees.length,
+            page: 1,
+            page_size: 50,
+            total_pages: 1,
+        } as PaginatedResponse<Employee>;
     },
 
     async createEmployee(data: any) {
@@ -156,6 +162,12 @@ export const mockAdminApi = {
 
     async getAuditLogs() {
         await delay(300);
-        return { data: mockAuditLogs, total: mockAuditLogs.length };
+        return {
+            data: mockAuditLogs,
+            total: mockAuditLogs.length,
+            page: 1,
+            page_size: 50,
+            total_pages: 1,
+        } as PaginatedResponse<any>;
     },
 };

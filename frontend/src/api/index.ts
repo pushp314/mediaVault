@@ -239,6 +239,22 @@ export const storageApi = {
         const response = await api.post<SyncResult>(`/storage-accounts/${id}/sync`);
         return response.data;
     },
+
+    getAccess: async (id: string): Promise<Employee[]> => {
+        if (DEMO_MODE) return [];
+        const response = await api.get<Employee[]>(`/storage-accounts/${id}/access`);
+        return response.data;
+    },
+
+    grantAccess: async (id: string, employeeId: string): Promise<void> => {
+        if (DEMO_MODE) return;
+        await api.post(`/storage-accounts/${id}/access`, { employee_id: employeeId });
+    },
+
+    revokeAccess: async (id: string, employeeId: string): Promise<void> => {
+        if (DEMO_MODE) return;
+        await api.delete(`/storage-accounts/${id}/access/${employeeId}`);
+    },
 };
 
 // =============================================================================
@@ -320,9 +336,9 @@ export const adminApi = {
         await api.delete(`/admin/employees/${id}`);
     },
 
-    getAuditLogs: async (): Promise<any> => {
+    getAuditLogs: async (filters: any = {}): Promise<PaginatedResponse<any>> => {
         if (DEMO_MODE) return mockAdminApi.getAuditLogs();
-        const response = await api.get('/admin/audit-logs');
+        const response = await api.get<PaginatedResponse<any>>('/admin/audit-logs', { params: filters });
         return response.data;
     },
 };

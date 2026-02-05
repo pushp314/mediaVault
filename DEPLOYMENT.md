@@ -55,5 +55,14 @@ The script will automatically:
 
 ---
 
-## 4. Updates
-To update the site in the future, just run the script again! It will pull the latest changes from Git and rebuild.
+## 4. Feature Flags
+I have implemented a **Feature Flag** system to protect the production environment. 
+- You can enable/disable features (like `enable_audit_logs`) via the `feature_flags` table in PostgreSQL.
+- By default, all new features are enabled. If something crashes, set `is_enabled = false` for the relevant key.
+
+## 5. Updates & Migrations
+To update the site in the future, just run:
+```bash
+./redeploy.sh
+```
+This script automatically pulls code, applies new SQL migrations from `backend/migrations/`, rebuilds, and restarts services.

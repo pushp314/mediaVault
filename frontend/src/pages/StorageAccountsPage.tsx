@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+    ChevronDown,
+    Plus,
+    X,
+    Settings,
     HardDrive,
-    Cloud,
+    Trash2,
+    RefreshCw,
     Database,
     Archive,
-    Plus,
-    Trash2,
-    Settings,
+    Cloud,
+    AlertCircle,
     Loader2,
-    X,
-    RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { storageApi } from '../api';
@@ -65,6 +67,7 @@ export default function StorageAccountsPage() {
         accessKeyId: '',
         secretAccessKey: '',
         is_default: false,
+        is_public: false,
         max_file_size_mb: 100,
     });
 
@@ -96,6 +99,7 @@ export default function StorageAccountsPage() {
             accessKeyId: '',
             secretAccessKey: '',
             is_default: account.is_default,
+            is_public: account.is_public,
             max_file_size_mb: account.max_file_size_mb || 100,
         });
         setShowModal(true);
@@ -113,6 +117,7 @@ export default function StorageAccountsPage() {
             accessKeyId: '',
             secretAccessKey: '',
             is_default: false,
+            is_public: false,
             max_file_size_mb: 100,
         });
         setShowModal(true);
@@ -152,6 +157,7 @@ export default function StorageAccountsPage() {
                 endpoint_url: formData.endpoint_url || undefined,
                 public_url_base: formData.public_url_base || undefined,
                 is_default: formData.is_default,
+                is_public: formData.is_public,
                 max_file_size_mb: Number(formData.max_file_size_mb),
             };
 
@@ -305,6 +311,11 @@ export default function StorageAccountsPage() {
                                                     Primary
                                                 </span>
                                             )}
+                                            {account.is_public && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-emerald-600 px-2.5 py-1 rounded-full">
+                                                    Public
+                                                </span>
+                                            )}
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                                                 {account.provider}
                                             </span>
@@ -394,7 +405,7 @@ export default function StorageAccountsPage() {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-                    <div className="relative bg-white border border-neutral-200 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+                    <div className="relative bg-white border border-neutral-200 w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-8 pb-4 flex items-center justify-between border-b border-neutral-100">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center border border-neutral-100">
@@ -414,217 +425,252 @@ export default function StorageAccountsPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Display Name</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            placeholder="Production R2"
-                                            className="input"
-                                            value={formData.name}
-                                            onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Max File Size (MB)</label>
-                                        <input
-                                            required
-                                            type="number"
-                                            placeholder="100"
-                                            className="input"
-                                            value={formData.max_file_size_mb}
-                                            onChange={e => setFormData({ ...formData, max_file_size_mb: Number(e.target.value) })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Provider Type</label>
-                                        <select
-                                            disabled={!!editingAccount}
-                                            className="input appearance-none bg-neutral-50 disabled:opacity-50"
-                                            value={formData.provider}
-                                            onChange={e => setFormData({ ...formData, provider: e.target.value as ProviderType })}
-                                        >
-                                            <option value="s3">Amazon S3</option>
-                                            <option value="r2">Cloudflare R2</option>
-                                            <option value="b2">Backblaze B2</option>
-                                            <option value="cloudinary">Cloudinary</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                            {formData.provider === 'cloudinary' ? 'Access Mode' : 'Region'}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder={formData.provider === 'cloudinary' ? 'Standard' : 'auto'}
-                                            className="input"
-                                            value={formData.region}
-                                            onChange={e => setFormData({ ...formData, region: e.target.value })}
-                                            disabled={formData.provider === 'cloudinary'}
-                                        />
-                                    </div>
-                                </div>
-
-                                {formData.provider === 'cloudinary' ? (
+                        <form onSubmit={handleSubmit} className="p-10 space-y-10 overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                <div className="space-y-10">
                                     <div className="space-y-6">
-                                        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mb-2">
-                                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Intern Note</p>
-                                            <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
-                                                Cloudinary uses your **Cloud Name** as a bucket. Find your **API Key** and **Secret** in the Cloudinary Settings Dashboard.
-                                            </p>
-                                        </div>
-                                        <div className="space-y-6">
-                                            <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Cloud Name</label>
-                                                <input
-                                                    required={!editingAccount}
-                                                    type="text"
-                                                    placeholder="e.g. appnity-vault"
-                                                    className="input"
-                                                    value={formData.bucket_name}
-                                                    onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">API Key</label>
-                                                    <input
-                                                        required={!editingAccount}
-                                                        type="text"
-                                                        className="input"
-                                                        value={formData.accessKeyId}
-                                                        onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">API Secret</label>
-                                                    <input
-                                                        required={!editingAccount}
-                                                        type="password"
-                                                        className="input"
-                                                        value={formData.secretAccessKey}
-                                                        onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        {formData.provider === 'r2' && (
-                                            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 mb-2">
-                                                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Intern Note</p>
-                                                <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                                                    For R2, the **Endpoint URL** is mandatory. It should look like: `https://[account-id].r2.cloudflarestorage.com`. Get your API tokens from the Cloudflare R2 dashboard.
-                                                </p>
-                                            </div>
-                                        )}
-                                        {formData.provider === 's3' && (
-                                            <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 mb-2">
-                                                <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Intern Note</p>
-                                                <p className="text-[11px] text-orange-700 leading-relaxed font-medium">
-                                                    Standard AWS S3 setup. Make sure the IAM user has `s3:PutObject`, `s3:GetObject`, and `s3:ListBucket` permissions.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Bucket Name</label>
-                                            <input
-                                                required={!editingAccount}
-                                                type="text"
-                                                placeholder="e.g. my-media-bucket"
-                                                className="input"
-                                                value={formData.bucket_name}
-                                                onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
-                                            />
-                                        </div>
-
-                                        {(formData.provider === 'r2' || formData.provider === 's3' || formData.provider === 'b2') && (
-                                            <div className="space-y-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
-                                                        {formData.provider === 'r2' ? 'Endpoint URL (Required)' : 'Endpoint URL (Optional)'}
-                                                    </label>
-                                                    <input
-                                                        required={formData.provider === 'r2'}
-                                                        type="text"
-                                                        placeholder={formData.provider === 'r2' ? 'https://<id>.r2.cloudflarestorage.com' : 'Only if using custom endpoint'}
-                                                        className="input"
-                                                        value={formData.endpoint_url}
-                                                        onChange={e => setFormData({ ...formData, endpoint_url: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Public URL Base (CDN)</label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="e.g. https://cdn.example.com"
-                                                        className="input"
-                                                        value={formData.public_url_base}
-                                                        onChange={e => setFormData({ ...formData, public_url_base: e.target.value })}
-                                                    />
-                                                    <p className="text-[10px] text-neutral-400 font-medium px-1 mt-1">
-                                                        Used for generating public links to files.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-
+                                        <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1 border-l-2 border-black ml-1">General Identity</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                             <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Access Key ID</label>
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Display Name</label>
                                                 <input
-                                                    required={!editingAccount}
+                                                    required
                                                     type="text"
-                                                    className="input"
-                                                    value={formData.accessKeyId}
-                                                    onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
+                                                    placeholder="Production R2"
+                                                    className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                    value={formData.name}
+                                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Secret Access Key</label>
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Max File Size (MB)</label>
                                                 <input
-                                                    required={!editingAccount}
-                                                    type="password"
-                                                    className="input"
-                                                    value={formData.secretAccessKey}
-                                                    onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
+                                                    required
+                                                    type="number"
+                                                    placeholder="100"
+                                                    className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                    value={formData.max_file_size_mb}
+                                                    onChange={e => setFormData({ ...formData, max_file_size_mb: Number(e.target.value) })}
                                                 />
                                             </div>
                                         </div>
                                     </div>
-                                )}
 
-                                <label className="flex items-center gap-4 cursor-pointer group p-2">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only"
-                                            checked={formData.is_default}
-                                            onChange={e => setFormData({ ...formData, is_default: e.target.checked })}
-                                        />
-                                        <div className={`w-12 h-7 rounded-full border-2 border-neutral-100 transition-colors duration-300 ${formData.is_default ? 'bg-black border-black' : 'bg-neutral-100'}`}>
-                                            <div className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-sm ${formData.is_default ? 'right-1 bg-white' : 'left-1 bg-neutral-400'}`} />
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1 border-l-2 border-black ml-1">Connectivity</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <div className="space-y-3">
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Provider Type</label>
+                                                <div className="relative">
+                                                    <select
+                                                        disabled={!!editingAccount}
+                                                        className="input appearance-none bg-neutral-50 border-neutral-100 hover:border-black transition-all disabled:opacity-50"
+                                                        value={formData.provider}
+                                                        onChange={e => setFormData({ ...formData, provider: e.target.value as ProviderType })}
+                                                    >
+                                                        <option value="s3">Amazon S3</option>
+                                                        <option value="r2">Cloudflare R2</option>
+                                                        <option value="b2">Backblaze B2</option>
+                                                        <option value="cloudinary">Cloudinary</option>
+                                                    </select>
+                                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                                    {formData.provider === 'cloudinary' ? 'Access Mode' : 'Region'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder={formData.provider === 'cloudinary' ? 'Standard' : 'auto'}
+                                                    className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                    value={formData.region}
+                                                    onChange={e => setFormData({ ...formData, region: e.target.value })}
+                                                    disabled={formData.provider === 'cloudinary'}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                    <span className="text-sm font-bold text-black group-hover:text-black/70 transition-colors">Set as Primary Account</span>
-                                </label>
+
+                                    <div className="space-y-6 bg-neutral-50 p-6 rounded-[2rem] border border-neutral-100">
+                                        <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest pl-1 mb-6">Preferences</h3>
+                                        <div className="space-y-6">
+                                            <label className="flex items-center gap-4 cursor-pointer group p-2">
+                                                <div className="relative">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={formData.is_default}
+                                                        onChange={e => setFormData({ ...formData, is_default: e.target.checked })}
+                                                    />
+                                                    <div className={`w-12 h-7 rounded-full border-2 border-neutral-100 transition-colors duration-300 ${formData.is_default ? 'bg-black border-black' : 'bg-neutral-200'}`}>
+                                                        <div className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-sm ${formData.is_default ? 'right-1 bg-white' : 'left-1 bg-neutral-400'}`} />
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-black transition-colors">Set as Default Primary</span>
+                                                    <span className="text-[10px] text-neutral-400 font-medium tracking-tight">System-wide default choice for uploads</span>
+                                                </div>
+                                            </label>
+
+                                            <label className="flex items-center gap-4 cursor-pointer group p-2">
+                                                <div className="relative">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={formData.is_public}
+                                                        onChange={e => setFormData({ ...formData, is_public: e.target.checked })}
+                                                    />
+                                                    <div className={`w-12 h-7 rounded-full border-2 border-neutral-100 transition-colors duration-300 ${formData.is_public ? 'bg-emerald-600 border-emerald-600' : 'bg-neutral-200'}`}>
+                                                        <div className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-sm ${formData.is_public ? 'right-1 bg-white' : 'left-1 bg-neutral-400'}`} />
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-black transition-colors">Public Access Permission</span>
+                                                    <span className="text-[10px] text-neutral-400 font-medium tracking-tight">Allow unauthenticated public URL generation</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-10">
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1 border-l-2 border-black ml-1">Authentication Keys</h3>
+
+                                        {formData.provider === 'cloudinary' ? (
+                                            <div className="space-y-6">
+                                                <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 mb-2">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <AlertCircle className="w-4 h-4 text-blue-600" />
+                                                        <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest pl-1">Configuration Note</h4>
+                                                    </div>
+                                                    <p className="text-[11px] text-blue-700 leading-relaxed font-semibold">
+                                                        Cloudinary uses your <span className="text-blue-900 underline">Cloud Name</span> as a bucket. Find your API Key and Secret in the Cloudinary Console.
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-6">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Cloud Name</label>
+                                                        <input
+                                                            required={!editingAccount}
+                                                            type="text"
+                                                            placeholder="e.g. appnity-vault"
+                                                            className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                            value={formData.bucket_name}
+                                                            onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                        <div className="space-y-2">
+                                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">API Key</label>
+                                                            <input
+                                                                required={!editingAccount}
+                                                                type="text"
+                                                                className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                                value={formData.accessKeyId}
+                                                                onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">API Secret</label>
+                                                            <input
+                                                                required={!editingAccount}
+                                                                type="password"
+                                                                className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                                value={formData.secretAccessKey}
+                                                                onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Bucket Name</label>
+                                                    <input
+                                                        required={!editingAccount}
+                                                        type="text"
+                                                        placeholder="e.g. my-media-bucket"
+                                                        className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                        value={formData.bucket_name}
+                                                        onChange={e => setFormData({ ...formData, bucket_name: e.target.value })}
+                                                    />
+                                                </div>
+
+                                                {(formData.provider === 'r2' || formData.provider === 's3' || formData.provider === 'b2') && (
+                                                    <div className="grid grid-cols-1 gap-6">
+                                                        <div className="space-y-2">
+                                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                                                                {formData.provider === 'r2' ? 'Endpoint URL (Required)' : 'Endpoint URL (Optional)'}
+                                                            </label>
+                                                            <input
+                                                                required={formData.provider === 'r2'}
+                                                                type="text"
+                                                                placeholder={formData.provider === 'r2' ? 'https://<id>.r2.cloudflarestorage.com' : 'Only if using custom endpoint'}
+                                                                className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                                value={formData.endpoint_url}
+                                                                onChange={e => setFormData({ ...formData, endpoint_url: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Public URL Base (CDN)</label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="e.g. https://cdn.example.com"
+                                                                className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                                value={formData.public_url_base}
+                                                                onChange={e => setFormData({ ...formData, public_url_base: e.target.value })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                    <div className="space-y-2">
+                                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Access Key ID</label>
+                                                        <input
+                                                            required={!editingAccount}
+                                                            type="text"
+                                                            className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                            value={formData.accessKeyId}
+                                                            onChange={e => setFormData({ ...formData, accessKeyId: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest pl-1">Secret Access Key</label>
+                                                        <input
+                                                            required={!editingAccount}
+                                                            type="password"
+                                                            className="input bg-neutral-50/50 border-neutral-100 hover:border-black transition-all"
+                                                            value={formData.secretAccessKey}
+                                                            onChange={e => setFormData({ ...formData, secretAccessKey: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={isSaving}
-                                className="btn-primary w-full py-5 text-sm font-bold tracking-wider rounded-3xl"
-                            >
-                                {isSaving ? 'Processing...' : (editingAccount ? 'Save Configuration' : 'Establish Node')}
-                            </button>
+                            <div className="flex items-center justify-end pt-8 border-t border-neutral-100 mt-12 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-10 py-5 bg-neutral-50 text-neutral-500 font-bold uppercase tracking-widest text-xs rounded-[2rem] hover:bg-neutral-100 transition-all"
+                                >
+                                    Discard
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="flex-1 lg:flex-none px-20 py-5 bg-black text-white font-black uppercase tracking-[0.2em] text-xs rounded-[2rem] hover:bg-neutral-800 shadow-2xl transition-all disabled:opacity-50"
+                                >
+                                    {isSaving ? 'Processing Evolution...' : (editingAccount ? 'Update Configuration' : 'Establish Network Node')}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

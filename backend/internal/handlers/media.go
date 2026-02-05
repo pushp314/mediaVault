@@ -438,10 +438,24 @@ func (h *MediaHandler) BatchDownloadMedia(c *gin.Context) {
 // ListAuditLogs lists audit logs (admin only)
 // GET /api/admin/audit-logs
 func (h *MediaHandler) ListAuditLogs(c *gin.Context) {
-	page := 1
-	pageSize := 50
+	var filter models.AuditLogFilterRequest
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "Invalid query parameters",
+			Code:    "INVALID_REQUEST",
+			Details: err.Error(),
+		})
+		return
+	}
 
-	logs, total, err := h.repo.ListAuditLogs(c.Request.Context(), page, pageSize, "", nil)
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PageSize <= 0 {
+		filter.PageSize = 50
+	}
+
+	logs, total, err := h.repo.ListAuditLogs(c.Request.Context(), &filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: "Failed to list audit logs",
@@ -450,16 +464,16 @@ func (h *MediaHandler) ListAuditLogs(c *gin.Context) {
 		return
 	}
 
-	totalPages := int(total) / pageSize
-	if int(total)%pageSize > 0 {
+	totalPages := int(total) / filter.PageSize
+	if int(total)%filter.PageSize > 0 {
 		totalPages++
 	}
 
 	c.JSON(http.StatusOK, models.PaginatedResponse[models.AuditLog]{
 		Data:       logs,
 		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
+		Page:       filter.Page,
+		PageSize:   filter.PageSize,
 		TotalPages: totalPages,
 	})
 }

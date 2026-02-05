@@ -19,6 +19,13 @@ cd $APP_DIR
 echo ">>> Pulling latest changes from GitHub..."
 git pull origin main
 
+# 1.5 Apply Migrations
+echo ">>> Applying Database Migrations..."
+# In production, DB_URL should be in env or config
+DB_URL=$(grep DATABASE_URL $APP_DIR/backend/.env | cut -d '=' -f2-)
+chmod +x $APP_DIR/migrate.sh
+$APP_DIR/migrate.sh "$DB_URL"
+
 # 2. Rebuild Backend
 echo ">>> Rebuilding Backend..."
 cd $APP_DIR/backend
