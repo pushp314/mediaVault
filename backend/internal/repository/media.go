@@ -79,7 +79,7 @@ func (r *Repository) ListMediaGroups(ctx context.Context, role models.Role) ([]m
 			default_storage_account_id, allowed_roles::text[],
 			created_by, created_at, updated_at
 		FROM media_groups 
-		WHERE deleted_at IS NULL AND $1 = ANY(allowed_roles)
+		WHERE deleted_at IS NULL AND $1::role_type = ANY(allowed_roles)
 		ORDER BY name ASC
 	`
 	rows, err := r.db.Query(ctx, query, role)

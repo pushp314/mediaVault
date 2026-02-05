@@ -254,17 +254,21 @@ func (r *Repository) ListStorageAccounts(ctx context.Context, employeeID *uuid.U
 
 	query := fmt.Sprintf(`
 		SELECT 
-			sa.id, sa.name, sa.provider, sa.encrypted_credentials, sa.credentials_nonce,
+			sa.id, sa.name, sa.provider::text, sa.encrypted_credentials, sa.credentials_nonce,
 			sa.bucket_name, sa.region, sa.endpoint_url, sa.public_url_base,
 			sa.is_default, sa.is_active, sa.is_public, sa.max_file_size_mb, sa.allowed_types::text[],
 			sa.created_by, sa.created_at, sa.updated_at,
 			COUNT(m.id) as media_count,
-			COALESCE(SUM(m.file_size_bytes), 0) as total_size_bytes,
+			COALESCE(SUM(m.file_size_bytes), 0)::BIGINT as total_size_bytes,
 			MAX(m.created_at) as last_upload_at
 		FROM storage_accounts sa
 		LEFT JOIN media m ON sa.id = m.storage_account_id AND m.deleted_at IS NULL
 		%s
-		GROUP BY sa.id
+		GROUP BY 
+			sa.id, sa.name, sa.provider, sa.encrypted_credentials, sa.credentials_nonce,
+			sa.bucket_name, sa.region, sa.endpoint_url, sa.public_url_base,
+			sa.is_default, sa.is_active, sa.is_public, sa.max_file_size_mb, sa.allowed_types,
+			sa.created_by, sa.created_at, sa.updated_at
 		ORDER BY sa.created_at DESC
 	`, whereClause)
 
