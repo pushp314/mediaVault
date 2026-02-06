@@ -134,11 +134,13 @@ echo "Building Go backend..."
 /usr/local/go/bin/go build -o server cmd/server/main.go
 
 # Run Migrations
-if [ -f "migrations/001_initial_schema.sql" ]; then
-    echo "Running DB Migrations..."
-    export DATABASE_URL="postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?sslmode=disable"
-    # Execute SQL using psql as postgres user but connecting to local db with password requires setup
-    # Easier way for script: run as postgres user directly on the system socket
+if [ -f "../migrate.sh" ]; then
+    echo "Running all DB Migrations..."
+    chmod +x ../migrate.sh
+    export PGPASSWORD=$DB_PASSWORD
+    ../migrate.sh "postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?sslmode=disable"
+elif [ -f "migrations/001_initial_schema.sql" ]; then
+    echo "Running Initial Migration..."
     sudo -u postgres psql -d $DB_NAME -f migrations/001_initial_schema.sql || echo "Note: Migration might have specific errors if objects exist, ignoring."
 fi
 
