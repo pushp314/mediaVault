@@ -15,7 +15,7 @@ BACKEND_DOMAIN="api.launchit.co.in"
 BACKEND_PORT=8082
 DB_NAME="mediavault"
 DB_USER="mediavault"
-DB_PASSWORD="MediaVault@25"
+DB_PASSWORD="MediaVault_25"
 EMAIL="admin@appnity.cloud"
 
 # Ensure we are running as root
@@ -100,11 +100,12 @@ fi
 echo ">>> Fetching Code..."
 mkdir -p /var/www
 if [ -d "$APP_DIR" ]; then
-    echo "Directory exists at $APP_DIR. Pulling latest changes..."
+    echo "Directory exists at $APP_DIR. Pulling latest changes from GitHub..."
     cd $APP_DIR
-    # Reset any local changes to ensure clean pull
-    git reset --hard
-    git pull
+    git fetch origin main
+    git reset --hard origin/main
+    chmod +x $APP_DIR/redeploy.sh
+    chmod +x $APP_DIR/migrate.sh
 else
     echo "Cloning repository to $APP_DIR..."
     cd /var/www
@@ -166,6 +167,10 @@ systemctl daemon-reload
 systemctl enable mediavault-backend
 echo "Restarting Backend Service..."
 systemctl restart mediavault-backend
+
+# 7.5 Ensure scripts are executable
+chmod +x $APP_DIR/redeploy.sh
+chmod +x $APP_DIR/migrate.sh
 
 # 8. Setup Frontend (React/Vite)
 echo ">>> Setting up Frontend..."

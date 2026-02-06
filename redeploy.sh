@@ -19,6 +19,16 @@ cd $APP_DIR
 echo ">>> Pulling latest changes from GitHub..."
 git fetch origin main
 git reset --hard origin/main
+chmod +x $APP_DIR/redeploy.sh
+chmod +x $APP_DIR/migrate.sh
+
+# 1.2 Fix old password issue in .env if it exists (fixes the @ ambiguity for psql)
+if grep -q "MediaVault@25" $APP_DIR/backend/.env; then
+    echo ">>> Updating database password format to fix URI parsing..."
+    sed -i 's/MediaVault@25/MediaVault_25/g' $APP_DIR/backend/.env
+    # Also update the postgres user password to match
+    sudo -u postgres psql -c "ALTER USER mediavault WITH PASSWORD 'MediaVault_25';" || true
+fi
 
 # 1.5 Apply Migrations
 echo ">>> Applying Database Migrations..."
