@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Apply all SQL migrations to the database
 
 DB_URL=$1

@@ -17,7 +17,8 @@ cd $APP_DIR
 
 # 1. Pull latest code
 echo ">>> Pulling latest changes from GitHub..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 # 1.5 Apply Migrations
 echo ">>> Applying Database Migrations..."
